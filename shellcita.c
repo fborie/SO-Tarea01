@@ -18,27 +18,24 @@ char * get_current_working_directory(){
 }
 
 int change_directory(const char * path){
-   return chdir(path);
+    if(path == NULL){
+       return chdir(getenv("HOME"));
+    }
+    return chdir(path);
 }
 
-/*
-line = "ls -la; sort -r 1.txt"
-token = "sort -r 1.txt"
-cmd
-*/
 int main(int argc, char *argv[]){
     
     char * buffer = malloc(sizeof(char)*BUFFER_SIZE); //buffer store the input from stdin, it has to be free at the end
     while(1){
         printf(SHELL);
         fgets(buffer, BUFFER_SIZE, stdin);
-       // buffer = chop_newline(buffer); //chop newline from line      
         size_t len = strlen(buffer);
         if(buffer[len-1] == '\n'){
             buffer[len-1] = '\0';
         }
         //first sanitization of ;
-        size_t max_num_token = 10;
+        size_t max_num_token = 1024;
 
         char ** tokens = malloc(sizeof(char*)*max_num_token);
         if(tokens == NULL){
@@ -55,16 +52,6 @@ int main(int argc, char *argv[]){
             index++;
         }
              
-        
-        /*
-        printf("====================================\n");
-        int j;
-        for(j=0;j<index;j++){
-            printf("%s \n",tokens[j]);
-        }
-        printf("====================================\n");
-        */
- 
         //second sanitation of white spaces
         char *** cmds = malloc(sizeof(char*)*index); //arreglo "3D" en donde se apunta a los distintos comandos y sus distintas partes      
         if(cmds == NULL){
@@ -77,7 +64,7 @@ int main(int argc, char *argv[]){
             fprintf(stderr,"[malloc] Allocation failed\n");
             return 1;
         }
-        size_t max_cmd_parts = 100;
+        size_t max_cmd_parts = 1024;
         
         int i;
         for(i=0;i<index;i++){ //index nos ayuda a saber cuantos comandos en total se pasaron     
@@ -99,9 +86,6 @@ int main(int argc, char *argv[]){
             cmd[cmd_index] = NULL;
             cmds[i]=cmd;
             cmd_lens[i] = cmd_index;
-            
-           // free(cmd_part);
-           // free(cmd);
         }
         free(tokens);
             
@@ -128,6 +112,12 @@ int main(int argc, char *argv[]){
                 free(cwd);
             }
             else if(strcmp(cmd[0],"exit") == 0){//EXIT
+                for(i=0;i<index;i++){
+                    free(cmds[i]);
+                }
+                free(cmds);
+                free(cmd_lens);
+                free(buffer);
                 return 0;
             }
             
@@ -138,13 +128,10 @@ int main(int argc, char *argv[]){
                     exit(EXIT_FAILURE);
                 }
                 else if(c_pid == 0){ //child process
-                    //execvp(cmd[0],cmd);
                      if(execvp(cmd[0],cmd)<0){
                         fprintf(stderr,"[exec] error: %s \n",strerror(errno));
                         exit(EXIT_FAILURE);
                     }
-                    //exit(EXIT_SUCCESS);
-                         
                 }
                 else{ // parent process
                     wait(&status);
@@ -156,17 +143,6 @@ int main(int argc, char *argv[]){
                 }
             }
         }
-            
-        /*
-        for(i=0;i<index;i++){
-            char ** cmd_tmp = cmds[i];
-            int j;
-            for(j=0;j<cmd_lens[i];j++){
-                printf("%s ", cmd_tmp[j]);
-            }
-        }
-        printf("======================================\nFree\n");        
-       */       
         for(i=0;i<index;i++){
             free(cmds[i]);
         }

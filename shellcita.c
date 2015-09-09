@@ -2,9 +2,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <sys/wait.h>
 
 #define SHELL "shellcita$ "
 #define BUFFER_SIZE 1024
+
 
 /*
 line = "ls -la; sort -r 1.txt"
@@ -17,7 +21,11 @@ int main(int argc, char *argv[]){
     while(1){
         printf(SHELL);
         fgets(buffer, BUFFER_SIZE, stdin);
-        
+       // buffer = chop_newline(buffer); //chop newline from line      
+        size_t len = strlen(buffer);
+        if(buffer[len-1] == '\n'){
+            buffer[len-1] = '\0';
+        }
         //first sanitization of ;
         size_t max_num_token = 10;
 
@@ -58,7 +66,7 @@ int main(int argc, char *argv[]){
             fprintf(stderr,"[malloc] Allocation failed\n");
             return 1;
         }
-        size_t max_cmd_parts = 10;
+        size_t max_cmd_parts = 100;
         
         int i;
         for(i=0;i<index;i++){ //index nos ayuda a saber cuantos comandos en total se pasaron     
@@ -83,9 +91,39 @@ int main(int argc, char *argv[]){
            // free(cmd_part);
            // free(cmd);
         }
-        
+        printf("============="); 
         free(tokens);
-/*
+            
+        int status;
+        for(i=0;i<index;i++){
+            printf("%d \n",i);
+            char ** cmd = cmds[i];
+            pid_t c_pid = fork();
+            if(c_pid<0){ //fork error
+                perror("error: ");
+                fprintf(stdout,"error: %s \n",strerror(errno));
+                _exit(1);
+            }
+            else if(c_pid == 0){ //child process
+                if(strcmp(cmd[0],"cd") == 0){
+                }
+                else if(strcmp(cmd[0],"pwd") == 0){
+                }
+                else if(strcmp(cmd[0],"exit") == 0){
+                }
+                else{
+                    printf("%s \n",cmd[0]);   
+                }
+                _exit(0);
+            
+            }
+            else{ // parent process
+                wait(&status);   
+                printf("%d \n",status); 
+            }
+        }
+            
+        /*
         for(i=0;i<index;i++){
             char ** cmd_tmp = cmds[i];
             int j;
@@ -94,7 +132,7 @@ int main(int argc, char *argv[]){
             }
         }
         printf("======================================\nFree\n");        
-*/      
+       */       
         for(i=0;i<index;i++){
             free(cmds[i]);
         }

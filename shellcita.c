@@ -5,10 +5,21 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <linux/limits.h>
 
 #define SHELL "shellcita$ "
 #define BUFFER_SIZE 1024
 
+
+char * get_current_working_directory(){
+    char * cwd = malloc(sizeof(char)*PATH_MAX);
+    getcwd(cwd,PATH_MAX);
+    return cwd;        
+}
+
+int change_directory(const char * path){
+   return chdir(path);
+}
 
 /*
 line = "ls -la; sort -r 1.txt"
@@ -85,41 +96,64 @@ int main(int argc, char *argv[]){
                 cmd_part = strtok(NULL," ");
                 cmd_index++;               
             }
+            cmd[cmd_index] = NULL;
             cmds[i]=cmd;
             cmd_lens[i] = cmd_index;
             
            // free(cmd_part);
            // free(cmd);
         }
-        printf("============="); 
         free(tokens);
             
         int status;
         for(i=0;i<index;i++){
-            printf("%d \n",i);
             char ** cmd = cmds[i];
-            pid_t c_pid = fork();
-            if(c_pid<0){ //fork error
-                perror("error: ");
-                fprintf(stdout,"error: %s \n",strerror(errno));
-                _exit(1);
+            if(strcmp(cmd[0],"cd") == 0){//CD
+                int cd = change_directory(cmd[1]);
+                if(cd != 0){
+                    fprintf(stdout,"cd: %s: %s\n",cmd[1],strerror(errno));
+                    printf("\n");
+                    fprintf(stdout,"# error: cd returned %d\n", errno);              
+                }
             }
-            else if(c_pid == 0){ //child process
-                if(strcmp(cmd[0],"cd") == 0){
+            else if(strcmp(cmd[0],"pwd") == 0){//PWD
+                char * cwd = get_current_working_directory();
+                if(cwd == NULL){
+                    free(cwd);
+                    fprintf(stdout,"pwd: %s\n",strerror(errno));
+                    printf("\n");
+                    fprintf(stdout,"# error: pwd returned %d\n",errno);
                 }
-                else if(strcmp(cmd[0],"pwd") == 0){
-                }
-                else if(strcmp(cmd[0],"exit") == 0){
-                }
-                else{
-                    printf("%s \n",cmd[0]);   
-                }
-                _exit(0);
+                printf("%s \n",cwd);  
+                free(cwd);
+            }
+            else if(strcmp(cmd[0],"exit") == 0){//EXIT
+                return 0;
+            }
             
-            }
-            else{ // parent process
-                wait(&status);   
-                printf("%d \n",status); 
+            else{ //OTHER COMMANDS
+                pid_t c_pid = fork();
+                if(c_pid<0){ //fork error
+                    fprintf(stderr,"[fork] error: %s \n",strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
+                else if(c_pid == 0){ //child process
+                    //execvp(cmd[0],cmd);
+                     if(execvp(cmd[0],cmd)<0){
+                        fprintf(stderr,"[exec] error: %s \n",strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
+                    //exit(EXIT_SUCCESS);
+                         
+                }
+                else{ // parent process
+                    wait(&status);
+                   // printf("STATUS: %d \n",status);
+                    if(status!=0){
+                        printf("\n");
+                        fprintf(stdout,"# error: %s returned %d\n",cmd[0],status);
+                    }
+                }
             }
         }
             
